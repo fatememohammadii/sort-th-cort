@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Sort the Court - Karakterli</title>
+  <style>
+    canvas {
+      background-color: #f5f5f5;
+      display: block;
+      margin: 0 auto;
+    }
+    #buttons {
+      text-align: center;
+      margin-top: 10px;
+    }
+    button {
+      padding: 10px 20px;
+      font-size: 16px;
+      margin: 10px;
+      cursor: pointer;
+    }
+    #restartBtn {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="gameCanvas" width="600" height="400"></canvas>
+  <div id="buttons">
+    <button onclick="handleChoice(true)">Evet</button>
+    <button onclick="handleChoice(false)">Hayır</button>
+    <button id="restartBtn" onclick="restartGame()">Yeniden Başlat</button>
+  </div>
+
+  <script>
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+
+    let gold, happiness, population, score, currentQuestionIndex;
+    let displayedText = "";
+    let fullText = "";
+    let typingIndex = 0;
+    let typingInterval;
+
+    const characterImages = {
+      festival: new Image(),
+      merchant: new Image(),
+      witch: new Image(),
+      villager: new Image(),
+      knight: new Image(),
+      king: new Image()
+    };
+
+    characterImages.festival.src = "images/festival.png";
+    characterImages.merchant.src = "images/merchant.png";
+    characterImages.witch.src = "images/witch.png";
+    characterImages.villager.src = "images/villager.png";
+    characterImages.knight.src = "images/knight.png";
+    characterImages.king.src = "images/king.png";
+
+    const questions = [
+      {
+        character: "festival",
+        text: "Majesteleri, bir festival düzenleyelim mi?",
+        effectYes: () => { gold -= 50; happiness += 20; },
+        effectNo: () => { happiness -= 10; },
+        scoreYes: 15,
+        scoreNo: -5
+      },
+      {
+        character: "merchant",
+        text: "Bir tüccar vergi ödemek istemiyor. Affedelim mi?",
+        effectYes: () => { happiness += 10; },
+        effectNo: () => { gold += 20; happiness -= 5; },
+        scoreYes: 5,
+        scoreNo: 10
+      },
+      {
+        character: "witch",
+        text: "Ormanda yaşayan cadı yardım teklif ediyor, kabul edelim mi?",
+        effectYes: () => { gold += 30; population += 5; },
+        effectNo: () => { happiness -= 5; },
+        scoreYes: 10,
+        scoreNo: -10
+      },
+      {
+        character: "villager",
+        text: "Köylüler yeni bir kuyu istiyor, inşa edelim mi?",
+        effectYes: () => { gold -= 40; happiness += 15; },
+        effectNo: () => { happiness -= 10; },
+        scoreYes: 10,
+        scoreNo: -5
+      },
+      {
+        character: "knight",
+        text: "Krallığın asker sayısını artırmak ister misiniz?",
+        effectYes: () => { gold -= 30; population += 10; },
+        effectNo: () => { happiness -= 5; },
+        scoreYes: 8,
+        scoreNo: -3
+      }
+    ];
+
+    function resetStats() {
+      gold = 100;
+      happiness = 50;
+      population = 100;
+      score = 0;
+      currentQuestionIndex = 0;
+    }
+
+    function drawSpeechBubble(text) {
+      const padding = 10;
+      const bubbleWidth = 400;
+      const bubbleHeight = 80;
+      const x = (canvas.width - bubbleWidth) / 2;
+      const y = (canvas.height - 100) / 2 - bubbleHeight - 20;
+
+      ctx.fillStyle = "#ffffff";
+      ctx.strokeStyle = "#000000";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.roundRect(x, y, bubbleWidth, bubbleHeight, 15);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(x + bubbleWidth / 2 - 10, y + bubbleHeight);
+      ctx.lineTo(x + bubbleWidth / 2 + 10, y + bubbleHeight);
+      ctx.lineTo(x + bubbleWidth / 2, y + bubbleHeight + 15);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = "#000000";
+      ctx.font = "16px Arial";
+      ctx.textAlign = "center";
+      ctx.fillText(text, x + bubbleWidth / 2, y + bubbleHeight / 2 + 5);
+    }
+
+    function drawScene() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = "#D2691E";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = "#8B4513";
+      ctx.fillRect(100, 250, 400, 120);
+
+      const currentCharacter = questions[currentQuestionIndex]?.character;
+      const img = characterImages[currentCharacter];
+      if (img && img.complete) {
+        ctx.drawImage(img, 250, 150, 100, 100);
+      }
+
+      const kingImg = characterImages.king;
+      if (kingImg && kingImg.complete) {
+        ctx.drawImage(kingImg, 250, 270, 100, 100);
+      }
+
+      ctx.fillStyle = "#000";
+      ctx.font = "15px Arial";
+      ctx.fillText(`Altın: ${gold}`, 50, 30);
+      ctx.fillText(`Halk: ${population}`, 50, 60);
+      ctx.fillText(`Mutluluk: ${happiness}`, 50, 90);
+      ctx.fillText(`Puan: ${score}`, 50, 120);
+
+      if (currentQuestionIndex < questions.length || displayedText) {
+        drawSpeechBubble(displayedText);
+      }
+    }
+
+    function showNextQuestion() {
+      if (currentQuestionIndex < questions.length) {
+        fullText = questions[currentQuestionIndex].text;
+        displayedText = "";
+        typingIndex = 0;
+
+        clearInterval(typingInterval);
+        typingInterval = setInterval(() => {
+          if (typingIndex < fullText.length) {
+            displayedText += fullText[typingIndex];
+            typingIndex++;
+            drawScene();
+          } else {
+            clearInterval(typingInterval);
+          }
+        }, 40);
+      } else {
+        displayedText = `Oyun bitti. Toplam Puan: ${score}\n`;
+        if (score >= 40) {
+          displayedText += "Harika bir liderdiniz! 👑";
+        } else if (score >= 20) {
+          displayedText += "Krallık fena gitmedi. ⚖️";
+        } else {
+          displayedText += "Halk mutsuz, gelişmeye ihtiyacınız var. 😟";
+        }
+        drawScene();
+        document.querySelector("#buttons button:nth-child(1)").style.display = "none";
+        document.querySelector("#buttons button:nth-child(2)").style.display = "none";
+        document.getElementById("restartBtn").style.display = "inline-block";
+
+        // Oyun sonucu 3 saniye sonra temizlensin
+        setTimeout(() => {
+          displayedText = "";
+          drawScene();
+        }, 3000);
+      }
+    }
+
+    function handleChoice(choice) {
+      const q = questions[currentQuestionIndex];
+      if (choice) {
+        q.effectYes();
+        score += q.scoreYes;
+      } else {
+        q.effectNo();
+        score += q.scoreNo;
+      }
+      currentQuestionIndex++;
+      showNextQuestion();
+    }
+
+    function restartGame() {
+      resetStats();
+      document.querySelector("#buttons button:nth-child(1)").style.display = "inline-block";
+      document.querySelector("#buttons button:nth-child(2)").style.display = "inline-block";
+      document.getElementById("restartBtn").style.display = "none";
+      showNextQuestion();
+    }
+
+    // Klavye ile kontrol (→ = Evet, ← = Hayır, Enter = Restart)
+    document.addEventListener("keydown", (event) => {
+      if (currentQuestionIndex >= questions.length) {
+        if (event.key === "Enter") {
+          restartGame();
+        }
+        return;
+      }
+
+      if (event.key === "ArrowRight") {
+        handleChoice(true);
+      } else if (event.key === "ArrowLeft") {
+        handleChoice(false);
+      }
+    });
+
+    resetStats();
+    showNextQuestion();
+  </script>
+</body>
+</html>
